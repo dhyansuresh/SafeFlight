@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { requireAuth } from "../middleware/requireAuth.js";
+import { findLivePosition, fetchTrack, toCallsign } from "../lib/openSky.js";
 
 const router = Router();
 router.use(requireAuth);
@@ -16,7 +17,7 @@ const createFlightSchema = z.object({
   schedArr: z.coerce.date().optional(),
 });
 
-// List all flights. ?when=upcoming | past | all
+// List my flights. ?when=upcoming | past | all
 router.get("/", async (req, res) => {
   const userId = (req.user as { id: string }).id;
   const when = req.query.when ?? "all";
@@ -33,6 +34,46 @@ router.get("/", async (req, res) => {
   res.json({ flights });
 });
 
+// One flight, scoped to the owner so users can't read each other's flights.
+router.get("/:id", async (req, res) => {
+  const userId = (req.user as { id: string }).id;
+  const flight = await prisma.flight.findFirst({
+    where: { id: req.params.id, ownerId: userId },
+  });
+  if (!flight) return res.status(404).json({ error: "Not found" });
+  res.json({ flight });
+});
+
+// Live ADS-B position + flown track for one flight, via OpenSky.
+router.get("/:id/live", async (req, res) => {
+  const userId = (req.user as { id: string }).id;
+  const f = await prisma.flight.findFirst({
+    where: { id: req.params.id, ownerId: userId },
+  });
+  if (!f) return res.status(404).json({ error: "Not found" });
+
+  if (f.originLat == null || f.originLon == null || f.destLat == null || f.destLon == null) {
+    return res.json({ position: null, track: null, reason: "no coordinates yet" });
+  }
+
+  const callsign = toCallsign(f.airlineIata, f.flightNumber);
+  if (!callsign) {
+    return res.json({ position: null, track: null, reason: "unknown airline ICAO" });
+  }
+
+  const box = {
+    laMin: Math.min(f.originLat, f.destLat),
+    laMax: Math.max(f.originLat, f.destLat),
+    loMin: Math.min(f.originLon, f.destLon),
+    loMax: Math.max(f.originLon, f.destLon),
+  };
+
+  const position = await findLivePosition(callsign, box);
+  const track = position ? await fetchTrack(position.icao24) : null;
+
+  res.json({ position, track, callsign });
+});
+
 router.post("/", async (req, res) => {
   const parsed = createFlightSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -47,30 +88,12 @@ router.post("/", async (req, res) => {
 
 router.delete("/:id", async (req, res) => {
   const userId = (req.user as { id: string }).id;
-
+  // deleteMany with ownerId ensures users can only delete their OWN flights
   const result = await prisma.flight.deleteMany({
     where: { id: req.params.id, ownerId: userId },
   });
   if (result.count === 0) return res.status(404).json({ error: "Not found" });
   res.json({ ok: true });
 });
-
-router.patch("/:id", async (req, res) => {
-  const userId = (req.user as { id: string}).id;
-
-  const parsed = createFlightSchema.partial().safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ error: parsed.error.flatten() })
-  }
-
-  const result= await prisma.flight.updateMany({
-    where: {id: req.params.id, ownerId: userId},
-    data: parsed.data,
-  })
-
-  if (result.count === 0) return res.status(404).json({ error: "Not found" });
-
-  res.json({ ok: true })
-} )
 
 export default router;

@@ -59,6 +59,12 @@ model Flight {
   originTz  String?
   destTz    String?
 
+  // airport locations
+  originLat Float?
+  originLon Float?
+  destLat   Float?
+  destLon   Float?
+
   @@index([ownerId, departureDate])
 }
 

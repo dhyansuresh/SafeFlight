@@ -86,6 +86,10 @@ export async function pollFlights(opts: { force?: boolean } = {}): Promise<PollS
         gate: status.gate ?? f.gate,
         originTz: status.originTz ?? f.originTz,
         destTz: status.destTz ?? f.destTz,
+        originLat: status.originLat ?? f.originLat,
+        originLon: status.originLon ?? f.originLon,
+        destLat: status.destLat ?? f.destLat,
+        destLon: status.destLon ?? f.destLon,
         lastPolledAt: now,
       },
     });

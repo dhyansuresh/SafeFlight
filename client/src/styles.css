@@ -39,4 +39,8 @@ main { max-width: 860px; margin: 0 auto; padding: 1rem; }
 .delay { color: #c62828; font-weight: 600; }
 .early { color: #2e7d32; font-weight: 600; }
 .hint { font-size: 0.8125rem; color: #6e6e73; margin: 0.5rem 0 0; }
-.flight-form select { padding: 0.5rem; border: 1px solid #c9c9ce; border-radius: 8px; background: #fff; }*/
+.flight-form select { padding: 0.5rem; border: 1px solid #c9c9ce; border-radius: 8px; background: #fff; }
+
+.map-link { color: #1565c0; text-decoration: none; margin-left: 0.75rem; }
+.map-link:hover { text-decoration: underline; }
+.plane-marker { background: none; border: none; }

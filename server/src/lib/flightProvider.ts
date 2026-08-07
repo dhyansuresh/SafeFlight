@@ -14,6 +14,10 @@ export type FlightStatusResult = {
   destIata?: string;
   originTz?: string;
   destTz?: string;
+  originLat?: number;
+  originLon?: number;
+  destLat?: number;
+  destLon?: number;
 };
 
 function mapStatus(raw: string | undefined): FlightStatus {
@@ -126,6 +130,10 @@ export async function fetchFlightStatus(
       destIata: flight.arrival?.airport?.iata ?? undefined,
       originTz: flight.departure?.airport?.timeZone ?? undefined,
       destTz: flight.arrival?.airport?.timeZone ?? undefined,
+      originLat: flight.departure?.airport?.location?.lat ?? undefined,
+      originLon: flight.departure?.airport?.location?.lon ?? undefined,
+      destLat: flight.arrival?.airport?.location?.lat ?? undefined,
+      destLon: flight.arrival?.airport?.location?.lon ?? undefined,
     };
   } catch (err) {
     console.error(`Failed to fetch status for ${flightNumber}:`, err);

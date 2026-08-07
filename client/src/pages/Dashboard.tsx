@@ -215,6 +215,7 @@ function FlightList({
                   · {f.originIata} → {f.destIata} ·{" "}
                   {new Date(f.departureDate).toLocaleDateString([], { timeZone: "UTC" })} ·{" "}
                   {STATUS_LABELS[f.status] ?? f.status}
+                  <Link className="link-btn map-link" to={`/flight/${f.id}`}>map</Link>
                   <button className="link-btn" onClick={() => remove(f.id)}>remove</button>
                   <button className="link-btn" onClick={() => edit(f.id)}>edit</button>
                 </div>

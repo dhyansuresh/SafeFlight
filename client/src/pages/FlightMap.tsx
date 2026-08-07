@@ -1,78 +1,234 @@
 import { useEffect, useState } from "react";
-import { MapContainer, TileLayer, Polyline, CircleMarker, Popup } from "react-leaflet";
+import {
+  MapContainer,
+  TileLayer,
+  Polyline,
+  CircleMarker,
+  Marker,
+  Popup,
+  useMap,
+} from "react-leaflet";
+import L from "leaflet";
 import { greatCirclePoints } from "../lib/geo";
+import { useAuth } from "../App";
+import { Link } from "react-router-dom";
 
-// Demo route (MCO -> JFK) until flights carry airport coordinates (Phase 4).
-const MCO = { icao: "KMCO", name: "Orlando Intl", lat: 28.4294, lon: -81.309 };
-const JFK = { icao: "KJFK", name: "John F. Kennedy Intl", lat: 40.6413, lon: -73.7781 };
+type Flight = {
+  id: string;
+  airlineIata: string;
+  flightNumber: string;
+  originIata: string;
+  destIata: string;
+  status: string;
+  schedDep: string | null;
+  schedArr: string | null;
+  actualDep: string | null;
+  actualArr: string | null;
+  originLat: number | null;
+  originLon: number | null;
+  destLat: number | null;
+  destLon: number | null;
+};
 
 type Metar = {
   icaoId: string;
-  temp?: number;      // °C
-  wspd?: number;      // knots
+  temp?: number;
+  wspd?: number;
   visib?: string | number;
-  fltCat?: string;    // VFR / MVFR / IFR / LIFR
+  fltCat?: string;
   rawOb?: string;
 };
 
 const CAT_COLORS: Record<string, string> = {
-  VFR: "#2e7d32",   // green — good conditions
-  MVFR: "#1565c0",  // blue
-  IFR: "#c62828",   // red
-  LIFR: "#6a1b9a",  // magenta — worst
+  VFR: "#2e7d32",
+  MVFR: "#1565c0",
+  IFR: "#c62828",
+  LIFR: "#6a1b9a",
 };
 
+const CAT_LABELS: Record<string, string> = {
+  VFR: "Clear",
+  MVFR: "Some clouds",
+  IFR: "Low visibility",
+  LIFR: "Very poor visibility",
+};
+
+// aviationweather.gov uses ICAO.
+const toIcao = (iata: string) => `K${iata}`;
+
+const hasCoords = (f: Flight) =>
+    f.originLat != null && f.originLon != null && f.destLat != null && f.destLon != null;
+
+function estimatedPosition(f: Flight, route: [number, number][]): [number, number] | null {
+  const dep = f.actualDep ?? f.schedDep;
+  const arr = f.actualArr ?? f.schedArr;
+  if (!dep || !arr) return null;
+
+  const start = new Date(dep).getTime();
+  const end = new Date(arr).getTime();
+  const now = Date.now();
+  if (now <= start || now >= end || end <= start) return null;
+
+  const fraction = (now - start) / (end - start);
+  const idx = Math.min(route.length - 1, Math.max(0, Math.round(fraction * (route.length - 1))));
+  return route[idx];
+}
+
+const planeIcon = L.divIcon({
+  className: "plane-marker",
+  html: '<div style="font-size:20px;line-height:20px">&#9992;</div>',
+  iconSize: [20, 20],
+  iconAnchor: [10, 10],
+});
+
+function FitBounds({ points }: { points: [number, number][] }) {
+  const map = useMap();
+  useEffect(() => {
+    if (points.length === 0) return;
+    map.fitBounds(L.latLngBounds(points), { padding: [40, 40] });
+  }, [map, points]);
+  return null;
+}
+
 export default function FlightMap() {
+  const { user, loading } = useAuth();
+  const [flights, setFlights] = useState<Flight[]>([]);
   const [metars, setMetars] = useState<Metar[]>([]);
-  const airports = [MCO, JFK];
 
   useEffect(() => {
-    fetch(`/api/weather/metar?ids=${airports.map((a) => a.icao).join(",")}`)
-      .then((r) => r.json())
-      .then((d) => setMetars(Array.isArray(d.metars) ? d.metars : []))
-      .catch(() => setMetars([]));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (!user) return;
+    fetch("/api/flights", { credentials: "include" })
+        .then((r) => r.json())
+        .then((d) => setFlights(d.flights ?? []))
+        .catch(() => setFlights([]));
+  }, [user]);
 
-  const route = greatCirclePoints(MCO.lat, MCO.lon, JFK.lat, JFK.lon, 64);
+  const drawable = flights.filter(hasCoords);
+
+  const airports = Array.from(
+      new Map(
+          drawable.flatMap((f) => [
+            [f.originIata, { iata: f.originIata, lat: f.originLat!, lon: f.originLon! }] as const,
+            [f.destIata, { iata: f.destIata, lat: f.destLat!, lon: f.destLon! }] as const,
+          ])
+      ).values()
+  );
+
+  const airportKey = airports.map((a) => a.iata).join(",");
+
+  useEffect(() => {
+    if (!airportKey) return;
+    const ids = airportKey.split(",").map(toIcao).join(",");
+    fetch(`/api/weather/metar?ids=${ids}`)
+        .then((r) => r.json())
+        .then((d) => setMetars(Array.isArray(d.metars) ? d.metars : []))
+        .catch(() => setMetars([]));
+  }, [airportKey]);
+
+  if (loading) return <p>Loading…</p>;
+  if (!user)
+    return (
+        <div className="card center">
+          <p>
+            <Link to="/login">Sign in</Link> to see your flights on the map.
+          </p>
+        </div>
+    );
+
+  const routes = drawable.map((f) => ({
+    flight: f,
+    points: greatCirclePoints(f.originLat!, f.originLon!, f.destLat!, f.destLon!, 64),
+  }));
+
+  const allPoints = routes.flatMap((r) => r.points);
 
   return (
-    <div className="map-wrap">
-      <MapContainer center={[34.5, -77.5]} zoom={5} style={{ height: "70vh", width: "100%" }}>
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
+      <div className="map-wrap">
+        <h1>Flight map</h1>
 
-        <Polyline positions={route} pathOptions={{ color: "#333", weight: 2, dashArray: "6 6" }} />
+        {drawable.length === 0 && (
+            <p className="muted">
+              No mapped flights yet. Flights appear here once they have been polled
+              for live data.
+            </p>
+        )}
 
-        {airports.map((a) => {
-          const m = metars.find((x) => x.icaoId === a.icao);
-          const color = CAT_COLORS[m?.fltCat ?? ""] ?? "#757575";
-          return (
-            <CircleMarker key={a.icao} center={[a.lat, a.lon]} radius={9}
-              pathOptions={{ color, fillColor: color, fillOpacity: 0.85 }}>
-              <Popup>
-                <strong>{a.name} ({a.icao})</strong>
-                {m ? (
-                  <div>
-                    <div>Category: {m.fltCat ?? "n/a"}</div>
-                    <div>Temp: {m.temp ?? "?"}°C · Wind: {m.wspd ?? "?"} kt</div>
-                    <div>Visibility: {String(m.visib ?? "?")} mi</div>
-                    <code style={{ fontSize: 11 }}>{m.rawOb}</code>
-                  </div>
-                ) : (
-                  <div>Weather loading / unavailable</div>
-                )}
-              </Popup>
-            </CircleMarker>
-          );
-        })}
-      </MapContainer>
-      <p className="muted">
-        Marker colors show flight category from aviationweather.gov METARs:
-        green VFR, blue MVFR, red IFR, purple LIFR.
-      </p>
-    </div>
+        <MapContainer center={[35, -90]} zoom={4} style={{ height: "70vh", width: "100%" }}>
+          <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+
+          <FitBounds points={allPoints} />
+
+          {routes.map(({ flight: f, points }) => {
+            const isActive = f.status === "ACTIVE";
+            const pos = isActive ? estimatedPosition(f, points) : null;
+            return (
+                <div key={f.id}>
+                  <Polyline
+                      positions={points}
+                      pathOptions={{
+                        color: isActive ? "#1565c0" : "#888",
+                        weight: isActive ? 3 : 2,
+                        dashArray: isActive ? undefined : "6 6",
+                      }}
+                  />
+                  {pos && (
+                      <Marker position={pos} icon={planeIcon}>
+                        <Popup>
+                          <strong>
+                            {f.airlineIata}
+                            {f.flightNumber}
+                          </strong>
+                          <div>
+                            {f.originIata} &rarr; {f.destIata}
+                          </div>
+                          <div className="muted">Estimated position</div>
+                        </Popup>
+                      </Marker>
+                  )}
+                </div>
+            );
+          })}
+
+          {airports.map((a) => {
+            const m = metars.find((x) => x.icaoId === toIcao(a.iata));
+            const color = CAT_COLORS[m?.fltCat ?? ""] ?? "#757575";
+            return (
+                <CircleMarker
+                    key={a.iata}
+                    center={[a.lat, a.lon]}
+                    radius={8}
+                    pathOptions={{ color, fillColor: color, fillOpacity: 0.85 }}
+                >
+                  <Popup>
+                    <strong>{a.iata}</strong>
+                    {m ? (
+                        <div>
+                          <div>
+                            {CAT_LABELS[m.fltCat ?? ""] ?? "Unknown"}{" "}
+                            {m.fltCat && <span className="muted">({m.fltCat})</span>}
+                          </div>
+                          <div>
+                            {m.temp ?? "?"}&deg;C &middot; wind {m.wspd ?? "?"} kt
+                          </div>
+                          <div>Visibility {String(m.visib ?? "?")} mi</div>
+                        </div>
+                    ) : (
+                        <div className="muted">No weather report</div>
+                    )}
+                  </Popup>
+                </CircleMarker>
+            );
+          })}
+        </MapContainer>
+
+        <p className="muted hint">
+          Solid blue routes are in the air. Airport dots show current flying conditions:
+          green is clear, blue some clouds, red low visibility, purple very poor.
+          Aircraft positions are estimated from departure and arrival times.
+        </p>
+      </div>
   );
 }
