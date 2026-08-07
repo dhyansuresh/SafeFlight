@@ -4,13 +4,13 @@ import passport from "passport";
 const router = Router();
 const CLIENT_URL = process.env.CLIENT_URL ?? "http://localhost:5173";
 
-// Step 1: kick off the OAuth dance
+
 router.get(
   "/google",
   passport.authenticate("google", { scope: ["profile", "email"] })
 );
 
-// Step 3/4: Google sends the user back here
+
 router.get(
   "/google/callback",
   passport.authenticate("google", { failureRedirect: `${CLIENT_URL}/login?error=1` }),
@@ -19,7 +19,7 @@ router.get(
   }
 );
 
-// Who am I? The client calls this on load to hydrate auth state.
+
 router.get("/me", (req, res) => {
   if (!req.user) return res.status(401).json({ user: null });
   const { id, email, name, avatarUrl } = req.user as {

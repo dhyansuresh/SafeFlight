@@ -39,7 +39,7 @@ model Flight {
 
   airlineIata   String
   flightNumber  String
-  departureDate DateTime // date of departure (used to disambiguate recurring flight numbers)
+  departureDate DateTime // date of departure
 
   originIata    String // "MCO"
   destIata      String // "JFK"

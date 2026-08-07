@@ -16,7 +16,7 @@ const createFlightSchema = z.object({
   schedArr: z.coerce.date().optional(),
 });
 
-// List my flights. ?when=upcoming | past | all
+// List all flights. ?when=upcoming | past | all
 router.get("/", async (req, res) => {
   const userId = (req.user as { id: string }).id;
   const when = req.query.when ?? "all";
@@ -47,12 +47,30 @@ router.post("/", async (req, res) => {
 
 router.delete("/:id", async (req, res) => {
   const userId = (req.user as { id: string }).id;
-  // deleteMany with ownerId ensures users can only delete their OWN flights
+
   const result = await prisma.flight.deleteMany({
     where: { id: req.params.id, ownerId: userId },
   });
   if (result.count === 0) return res.status(404).json({ error: "Not found" });
   res.json({ ok: true });
 });
+
+router.patch("/:id", async (req, res) => {
+  const userId = (req.user as { id: string}).id;
+
+  const parsed = createFlightSchema.partial().safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.flatten() })
+  }
+
+  const result= await prisma.flight.updateMany({
+    where: {id: req.params.id, ownerId: userId},
+    data: parsed.data,
+  })
+
+  if (result.count === 0) return res.status(404).json({ error: "Not found" });
+
+  res.json({ ok: true })
+} )
 
 export default router;

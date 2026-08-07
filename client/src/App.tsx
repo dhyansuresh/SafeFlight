@@ -54,7 +54,7 @@ export default function App() {
   return (
     <AuthContext.Provider value={{ user, loading, refresh }}>
       <header className="nav">
-        <Link to="/" className="brand">✈ FlightTrack</Link>
+        <Link to="/" className="brand">✈ SafeFlight</Link>
         <nav>
           <Link to="/map">Map</Link>
           {user ? (

@@ -1,9 +1,3 @@
-/**
- * Great-circle interpolation between two lat/lon points.
- * A straight line on a flat map is NOT the shortest path on a sphere —
- * real flight routes curve. This is the classic "slerp" formula.
- * Good exercise: derive why this works from the definition of a sphere.
- */
 export function greatCirclePoints(
   lat1: number, lon1: number,
   lat2: number, lon2: number,

@@ -96,8 +96,22 @@ export default function Dashboard() {
 }
 
 function FlightList({ title, flights, onChanged }: { title: string; flights: Flight[]; onChanged: () => void }) {
+
   async function remove(id: string) {
     await fetch(`/api/flights/${id}`, { method: "DELETE", credentials: "include" });
+    onChanged();
+  }
+
+  async function edit(id: string) {
+    const destIata = prompt("New destination airport (3 letters, e.g LAX):")
+    if (!destIata) return;
+
+    await fetch(`api/flights/${id}`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: {"Content-Type": "application/json" },
+      body: JSON.stringify({ destIata:destIata.toUpperCase() })
+    });
     onChanged();
   }
   return (
@@ -111,6 +125,7 @@ function FlightList({ title, flights, onChanged }: { title: string; flights: Fli
             {f.originIata} → {f.destIata} ·{" "}
             {new Date(f.departureDate).toLocaleDateString()} · {f.status}
             <button className="link-btn" onClick={() => remove(f.id)}>remove</button>
+            <button className="link-btn" onClick={() => edit(f.id) } >edit</button>
           </li>
         ))}
       </ul>
