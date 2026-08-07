@@ -1,0 +1,29 @@
+* { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, sans-serif; background: #f5f6f8; color: #1c1c1e; }
+main { max-width: 860px; margin: 0 auto; padding: 1rem; }
+
+.nav { display: flex; justify-content: space-between; align-items: center;
+  padding: 0.75rem 1.25rem; background: #fff; border-bottom: 1px solid #e2e2e6; }
+.nav .brand { font-weight: 700; text-decoration: none; color: inherit; }
+.nav nav { display: flex; gap: 1rem; align-items: center; }
+.nav a { color: inherit; }
+
+.card { background: #fff; border: 1px solid #e2e2e6; border-radius: 10px;
+  padding: 1.25rem; margin: 1rem 0; }
+.center { text-align: center; }
+
+.btn { display: inline-block; background: #1c1c1e; color: #fff; border: none;
+  padding: 0.55rem 1.1rem; border-radius: 8px; font-size: 1rem; cursor: pointer;
+  text-decoration: none; }
+.btn:hover { opacity: 0.85; }
+
+.flight-form { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.flight-form input { padding: 0.5rem; border: 1px solid #c9c9ce; border-radius: 8px; }
+
+.flight-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.5rem; }
+.flight-list li { padding: 0.5rem 0; border-bottom: 1px solid #eee; }
+
+.link-btn { background: none; border: none; color: #c62828; cursor: pointer; margin-left: 0.75rem; }
+.error { color: #c62828; }
+.muted { color: #6e6e73; }
+.map-wrap { margin-top: 1rem; }

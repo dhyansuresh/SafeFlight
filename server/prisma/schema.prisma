@@ -1,0 +1,112 @@
+// SafeFlight data model
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  googleId  String   @unique
+  email     String   @unique
+  name      String
+  avatarUrl String?
+  createdAt DateTime @default(now())
+
+  flights             Flight[]
+  cards               Card[]
+  sentFriendships     Friendship[] @relation("Requester")
+  receivedFriendships Friendship[] @relation("Addressee")
+}
+
+enum FlightStatus {
+  SCHEDULED
+  EN ROUTE
+  LANDED
+  CANCELLED
+  DIVERTED
+  UNKNOWN
+}
+
+model Flight {
+  id            String       @id @default(cuid())
+  ownerId       String
+  owner         User         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  airlineIata   String
+  flightNumber  String
+  departureDate DateTime // date of departure (used to disambiguate recurring flight numbers)
+
+  originIata    String // "MCO"
+  destIata      String // "JFK"
+
+  schedDep      DateTime? // all times stored UTC
+  schedArr      DateTime?
+  actualDep     DateTime?
+  actualArr     DateTime?
+  status        FlightStatus @default(SCHEDULED)
+  gate          String?
+  terminal      String?
+
+  lastPolledAt  DateTime?
+  createdAt     DateTime     @default(now())
+
+  cardFlights   CardFlight[]
+
+  @@index([ownerId, departureDate])
+}
+
+enum FriendshipStatus {
+  PENDING
+  ACCEPTED
+}
+
+model Friendship {
+  id          String           @id @default(cuid())
+  requesterId String
+  addresseeId String
+  status      FriendshipStatus @default(PENDING)
+  createdAt   DateTime         @default(now())
+
+  requester User @relation("Requester", fields: [requesterId], references: [id], onDelete: Cascade)
+  addressee User @relation("Addressee", fields: [addresseeId], references: [id], onDelete: Cascade)
+
+  @@unique([requesterId, addresseeId])
+}
+
+model Card {
+  id         String   @id @default(cuid())
+  ownerId    String
+  owner      User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  title      String
+  shareToken String   @unique @default(cuid()) // unguessable public link token
+  isPublic   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  cardFlights CardFlight[]
+}
+
+model CardFlight {
+  cardId   String
+  flightId String
+  card     Card   @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  flight   Flight @relation(fields: [flightId], references: [id], onDelete: Cascade)
+
+  @@id([cardId, flightId])
+}
+
+// Airports dataset
+model Airport {
+  iata      String  @id // "MCO"
+  icao      String? // "KMCO"
+  name      String
+  city      String?
+  country   String?
+  latitude  Float
+  longitude Float
+  tzName    String? // IANA timezone, e.g. "America/New_York"
+}
