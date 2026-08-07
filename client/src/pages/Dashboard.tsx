@@ -236,14 +236,16 @@ function FlightList({
 
                 {f.schedArr && (
                     <div className="muted detail">
-                      Arrives {time(f.schedArr, f.destTz)}
-                      {f.actualArr &&
-                          (() => {
-                            const d = minutesBetween(f.actualArr, f.schedArr!);
-                            if (d > 0) return <span className="delay"> · {d} min late</span>;
-                            if (d < 0) return <span className="early"> · {-d} min early</span>;
-                            return <span> · on time</span>;
-                          })()}
+                      Arrives {time(f.actualArr ?? f.schedArr, f.destTz)}
+                      {f.actualArr && (
+                          <s className="muted"> {time(f.schedArr!, f.destTz)}</s>
+                      )}
+                      {f.actualArr && (() => {
+                        const d = minutesBetween(f.actualArr, f.schedArr!);
+                        if (d > 0) return <span className="delay"> · {d} min late</span>;
+                        if (d < 0) return <span className="early"> · {-d} min early</span>;
+                        return <span> · on time</span>;
+                      })()}
                     </div>
                 )}
               </li>
