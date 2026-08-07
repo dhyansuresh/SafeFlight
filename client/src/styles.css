@@ -27,3 +27,16 @@ main { max-width: 860px; margin: 0 auto; padding: 1rem; }
 .error { color: #c62828; }
 .muted { color: #6e6e73; }
 .map-wrap { margin-top: 1rem; }
+
+.delay { color: #c62828; }
+.early { color: #2e7d32; }
+
+
+
+/* flight list */
+.flight-list li { display: grid; gap: 0.15rem; }
+.detail { font-size: 0.875rem; padding-left: 0.1rem; }
+.delay { color: #c62828; font-weight: 600; }
+.early { color: #2e7d32; font-weight: 600; }
+.hint { font-size: 0.8125rem; color: #6e6e73; margin: 0.5rem 0 0; }
+.flight-form select { padding: 0.5rem; border: 1px solid #c9c9ce; border-radius: 8px; background: #fff; }*/

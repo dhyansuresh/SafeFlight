@@ -3,3 +3,4 @@ dist/
 .env
 *.local
 PLAN.md
+server/src/lib/flightProvider.ts

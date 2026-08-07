@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useAuth } from "../App";
 import { Link } from "react-router-dom";
+import { AIRLINES, airlineName } from "../lib/arlines";
 
 type Flight = {
   id: string;
@@ -10,7 +11,27 @@ type Flight = {
   originIata: string;
   destIata: string;
   status: string;
+  schedDep: string | null;
+  schedArr: string | null;
+  actualDep: string | null;
+  actualArr: string | null;
+  terminal: string | null;
+  gate: string | null;
+  originTz: string | null;
+  destTz: string | null;
 };
+
+const STATUS_LABELS: Record<string, string> = {
+  SCHEDULED: "Scheduled",
+  ACTIVE: "En route ✈",
+  LANDED: "Landed",
+  CANCELLED: "Cancelled",
+  DIVERTED: "Diverted",
+  UNKNOWN: "—",
+};
+
+const dayOf = (iso: string) => iso.slice(0, 10);
+const todayUTC = () => new Date().toISOString().slice(0, 10);
 
 export default function Dashboard() {
   const { user, loading } = useAuth();
@@ -63,72 +84,171 @@ export default function Dashboard() {
       </div>
     );
 
-  const now = new Date();
-  const upcoming = flights.filter((f) => new Date(f.departureDate) >= now);
-  const past = flights.filter((f) => new Date(f.departureDate) < now);
+  // flight sorting
+  const today = todayUTC();
+  const enRoute = flights.filter((f) => f.status === "ACTIVE" || f.status === "DIVERTED");
+  const past = flights.filter(
+      (f) =>
+          f.status !== "ACTIVE" &&
+          f.status !== "DIVERTED" &&
+          (f.status === "LANDED" || dayOf(f.departureDate) < today)
+  );
+  const upcoming = flights.filter(
+      (f) =>
+          f.status !== "ACTIVE" &&
+          f.status !== "DIVERTED" &&
+          f.status !== "LANDED" &&
+          dayOf(f.departureDate) >= today
+  );
 
   return (
-    <div>
-      <h1>Welcome, {user.name.split(" ")[0]}</h1>
+      <div>
+        <h1>Welcome, {user.name.split(" ")[0]}</h1>
 
-      <section className="card">
-        <h2>Add a flight</h2>
-        <form onSubmit={addFlight} className="flight-form">
-          <input placeholder="Airline (DL)" value={form.airlineIata} maxLength={3}
-            onChange={(e) => setForm({ ...form, airlineIata: e.target.value.toUpperCase() })} required />
-          <input placeholder="Flight # (1234)" value={form.flightNumber} maxLength={5}
-            onChange={(e) => setForm({ ...form, flightNumber: e.target.value })} required />
-          <input type="date" value={form.departureDate}
-            onChange={(e) => setForm({ ...form, departureDate: e.target.value })} required />
-          <input placeholder="From (MCO)" value={form.originIata} maxLength={3}
-            onChange={(e) => setForm({ ...form, originIata: e.target.value.toUpperCase() })} required />
-          <input placeholder="To (JFK)" value={form.destIata} maxLength={3}
-            onChange={(e) => setForm({ ...form, destIata: e.target.value.toUpperCase() })} required />
-          <button className="btn" type="submit">Add</button>
-        </form>
-        {error && <p className="error">{error}</p>}
-      </section>
+        <section className="card">
+          <h2>Add a flight</h2>
+          <form onSubmit={addFlight} className="flight-form">
+            <select
+                value={form.airlineIata}
+                onChange={(e) => setForm({ ...form, airlineIata: e.target.value })}
+                required
+            >
+              <option value="">Select airline…</option>
+              {AIRLINES.map((a) => (
+                  <option key={a.iata} value={a.iata}>
+                    {a.name} ({a.iata})
+                  </option>
+              ))}
+            </select>
+            <input
+                placeholder="Flight number"
+                value={form.flightNumber}
+                inputMode="numeric"
+                maxLength={4}
+                onChange={(e) =>
+                    setForm({ ...form, flightNumber: e.target.value.replace(/\D/g, "") })
+                }
+                required
+            />
+            <input
+                type="date"
+                value={form.departureDate}
+                onChange={(e) => setForm({ ...form, departureDate: e.target.value })}
+                required
+            />
+            <input
+                placeholder="From (MCO)"
+                value={form.originIata}
+                maxLength={3}
+                onChange={(e) => setForm({ ...form, originIata: e.target.value.toUpperCase() })}
+                required
+            />
+            <input
+                placeholder="To (JFK)"
+                value={form.destIata}
+                maxLength={3}
+                onChange={(e) => setForm({ ...form, destIata: e.target.value.toUpperCase() })}
+                required
+            />
+            <button className="btn" type="submit">Add</button>
+          </form>
+          <p className="hint">Flight numbers are usually 3 or 4 digits — enter just the number, no airline code.</p>
+          {error && <p className="error">{error}</p>}
+        </section>
 
-      <FlightList title="Upcoming" flights={upcoming} onChanged={loadFlights} />
-      <FlightList title="Past" flights={past} onChanged={loadFlights} />
-    </div>
+        <FlightList title="En route" flights={enRoute} onChanged={loadFlights} emptyText="No flights in the air right now." />
+        <FlightList title="Upcoming" flights={upcoming} onChanged={loadFlights} emptyText="No upcoming flights." />
+        <FlightList title="Past" flights={past} onChanged={loadFlights} emptyText="No past flights." />
+      </div>
   );
 }
 
-function FlightList({ title, flights, onChanged }: { title: string; flights: Flight[]; onChanged: () => void }) {
-
+function FlightList({
+                      title,
+                      flights,
+                      onChanged,
+                      emptyText,
+                    }: {
+  title: string;
+  flights: Flight[];
+  onChanged: () => void;
+  emptyText: string;
+}) {
   async function remove(id: string) {
     await fetch(`/api/flights/${id}`, { method: "DELETE", credentials: "include" });
     onChanged();
   }
 
   async function edit(id: string) {
-    const destIata = prompt("New destination airport (3 letters, e.g LAX):")
+    const destIata = prompt("New destination airport (3 letters, e.g. LAX):");
     if (!destIata) return;
-
-    await fetch(`api/flights/${id}`, {
+    await fetch(`/api/flights/${id}`, {
       method: "PATCH",
       credentials: "include",
-      headers: {"Content-Type": "application/json" },
-      body: JSON.stringify({ destIata:destIata.toUpperCase() })
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ destIata: destIata.toUpperCase() }),
     });
     onChanged();
   }
+
+  const time = (iso: string, tz?: string | null) =>
+      new Date(iso).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: tz ?? undefined,
+        timeZoneName: "short",              // appends "EDT", "PDT", "AST"…
+      });
+
+  const minutesBetween = (a: string, b: string) =>
+      Math.round((new Date(a).getTime() - new Date(b).getTime()) / 60000);
+
   return (
-    <section className="card">
-      <h2>{title}</h2>
-      {flights.length === 0 && <p className="muted">No flights yet.</p>}
-      <ul className="flight-list">
-        {flights.map((f) => (
-          <li key={f.id}>
-            <strong>{f.airlineIata}{f.flightNumber}</strong>{" "}
-            {f.originIata} → {f.destIata} ·{" "}
-            {new Date(f.departureDate).toLocaleDateString()} · {f.status}
-            <button className="link-btn" onClick={() => remove(f.id)}>remove</button>
-            <button className="link-btn" onClick={() => edit(f.id) } >edit</button>
-          </li>
-        ))}
-      </ul>
-    </section>
+      <section className="card">
+        <h2>{title}</h2>
+        {flights.length === 0 && <p className="muted">{emptyText}</p>}
+        <ul className="flight-list">
+          {flights.map((f) => (
+              <li key={f.id}>
+                <div>
+                  <strong>{f.airlineIata}{f.flightNumber}</strong>{" "}
+                  <span className="muted">{airlineName(f.airlineIata)}</span>{" "}
+                  · {f.originIata} → {f.destIata} ·{" "}
+                  {new Date(f.departureDate).toLocaleDateString([], { timeZone: "UTC" })} ·{" "}
+                  {STATUS_LABELS[f.status] ?? f.status}
+                  <button className="link-btn" onClick={() => remove(f.id)}>remove</button>
+                  <button className="link-btn" onClick={() => edit(f.id)}>edit</button>
+                </div>
+
+                {f.schedDep && (
+                    <div className="muted detail">
+                      Departs {time(f.schedDep, f.originTz)}
+                      {f.terminal && ` · Terminal ${f.terminal}`}
+                      {f.gate && ` · Gate ${f.gate}`}
+                      {f.actualDep &&
+                          (() => {
+                            const d = minutesBetween(f.actualDep, f.schedDep!);
+                            if (d > 0) return <span className="delay"> · left {d} min late</span>;
+                            if (d < 0) return <span className="early"> · left {-d} min early</span>;
+                            return <span> · left on time</span>;
+                          })()}
+                    </div>
+                )}
+
+                {f.schedArr && (
+                    <div className="muted detail">
+                      Arrives {time(f.schedArr, f.destTz)}
+                      {f.actualArr &&
+                          (() => {
+                            const d = minutesBetween(f.actualArr, f.schedArr!);
+                            if (d > 0) return <span className="delay"> · {d} min late</span>;
+                            if (d < 0) return <span className="early"> · {-d} min early</span>;
+                            return <span> · on time</span>;
+                          })()}
+                    </div>
+                )}
+              </li>
+          ))}
+        </ul>
+      </section>
   );
 }

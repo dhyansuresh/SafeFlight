@@ -7,6 +7,7 @@ import { configurePassport } from "./lib/passport.js";
 import authRoutes from "./routes/auth.js";
 import flightRoutes from "./routes/flights.js";
 import weatherRoutes from "./routes/weather.js";
+import devRoutes from "./routes/dev.js"
 
 const app = express();
 const PORT = Number(process.env.PORT ?? 4000);
@@ -47,6 +48,7 @@ app.get("/api/health", (_req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/flights", flightRoutes);
 app.use("/api/weather", weatherRoutes);
+app.use("/api/dev", devRoutes);
 
 app.listen(PORT, () => {
   console.log(`API listening on http://localhost:${PORT}`);
