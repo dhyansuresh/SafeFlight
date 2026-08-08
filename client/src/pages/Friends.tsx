@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Link } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import { useAuth } from "../App";
 
 type PublicUser = { id: string; name: string; email: string; avatarUrl: string | null };
@@ -84,14 +84,7 @@ export default function Friends() {
   }
 
   if (loading) return <p>Loading&hellip;</p>;
-  if (!user)
-    return (
-        <div className="card center">
-          <p>
-            <Link to="/login">Sign in</Link> to manage friends.
-          </p>
-        </div>
-    );
+  if (!user) return <Navigate to="/login" replace />;
 
   return (
       <div>

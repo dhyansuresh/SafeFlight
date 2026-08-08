@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useAuth } from "../App";
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { AIRLINES, airlineName } from "../lib/airlines";
 import FlightMapView, { toIcao, type Metar, type LivePosition } from "../components/FlightMapView";
 import AirlineLogo from "../components/AirlineLogo";
@@ -124,10 +124,19 @@ export default function Dashboard() {
       )
       .sort((a, b) => a.departureDate.localeCompare(b.departureDate));
 
-  const hero = enRoute[0] ?? upcoming[0] ?? null;
-  const heroIsLive = hero != null && hero.status === "ACTIVE";
+  const ownHero = enRoute[0] ?? upcoming[0] ?? null;
+  const friendHero = !ownHero
+      ? friendFlights.find((f) => f.status === "ACTIVE" || f.status === "DIVERTED") ??
+      [...friendFlights]
+          .filter((f) => f.status !== "LANDED")
+          .sort((a, b) => a.departureDate.localeCompare(b.departureDate))[0] ??
+      null
+      : null;
+  const hero = ownHero ?? friendHero;
+  const heroOwner = ownHero ? null : friendHero?.owner ?? null;
+  const heroIsLive = hero != null && (hero.status === "ACTIVE" || hero.status === "DIVERTED");
   const otherEnRoute = enRoute.slice(1);
-  const upcomingBelow = hero && !heroIsLive ? upcoming.slice(1) : upcoming;
+  const upcomingBelow = ownHero && !heroIsLive ? upcoming.slice(1) : upcoming;
 
   const heroId = hero?.id ?? null;
   const heroStatus = hero?.status ?? null;
@@ -199,14 +208,7 @@ export default function Dashboard() {
   }
 
   if (loading) return <p>Loading\u2026</p>;
-  if (!user)
-    return (
-        <div className="card center">
-          <p>
-            <Link to="/login">Sign in</Link> to start tracking flights.
-          </p>
-        </div>
-    );
+  if (!user) return <Navigate to="/login" replace />;
 
   return (
       <div>
@@ -245,7 +247,7 @@ export default function Dashboard() {
                     onChange={(e) => setForm({ ...form, airlineIata: e.target.value })}
                     required
                 >
-                  <option value="">Select airline\u2026</option>
+                  <option value="">Select airline</option>
                   {AIRLINES.map((a) => (
                       <option key={a.iata} value={a.iata}>
                         {a.name} ({a.iata})
@@ -282,7 +284,7 @@ export default function Dashboard() {
                 />
                 <button className="btn" type="submit">Add</button>
               </form>
-              <p className="hint">Flight numbers are usually 3 or 4 digits \u2014 just the number, no airline code.</p>
+              <p className="hint">Flight numbers are usually 3 or 4 digits just the number, no airline code.</p>
               {error && <p className="error">{error}</p>}
             </section>
         )}
@@ -291,7 +293,13 @@ export default function Dashboard() {
             <section className="card hero">
               <div className="hero-title">
                 <div>
-                  <AirlineLogo iata={hero.airlineIata} size={30} />{" "}
+                  {heroOwner && (
+                      <span className="hero-owner">
+                  <Avatar url={heroOwner.avatarUrl} name={heroOwner.name} />
+                        {heroOwner.name.split(" ")[0]}&rsquo;s flight
+                </span>
+                  )}
+                  <AirlineLogo iata={hero.airlineIata} height={38} />{" "}
                   <strong className="hero-flight">
                     {hero.airlineIata}{hero.flightNumber}
                   </strong>{" "}
@@ -304,20 +312,58 @@ export default function Dashboard() {
                   <Link className="link-btn map-link" to={`/flight/${hero.id}`}>details</Link>
                 </div>
               </div>
-              <p className="muted">
-                {hero.originIata} &rarr; {hero.destIata}
-                {hero.schedDep && <> &middot; departs {time(hero.schedDep, hero.originTz)}</>}
-                {hero.schedArr && (
-                    <> &middot; arrives {time(heroIsLive && hero.actualArr ? hero.actualArr : hero.schedArr, hero.destTz)}</>
-                )}
-                {heroIsLive && hero.actualArr && hero.schedArr && (() => {
-                  const d = minutesBetween(hero.actualArr, hero.schedArr);
-                  if (d > 0) return <span className="delay"> ({d} min late)</span>;
-                  if (d < 0) return <span className="early"> ({-d} min early)</span>;
-                  return null;
-                })()}
-              </p>
               <FlightMapView flight={hero} metars={heroMetars} live={heroLive} track={heroTrack} height="42vh" />
+              <div className="tile-grid hero-tiles">
+                <div className="tile-box">
+                  <span className="tile-label">Route</span>
+                  <span className="tile-value">{hero.originIata} &rarr; {hero.destIata}</span>
+                  {(hero.originCity || hero.destCity) && (
+                      <span className="tile-sub">
+                  {hero.originCity ?? hero.originIata} to {hero.destCity ?? hero.destIata}
+                </span>
+                  )}
+                </div>
+                <div className="tile-box">
+                  <span className="tile-label">Date</span>
+                  <span className="tile-value">
+                {new Date(hero.departureDate).toLocaleDateString([], {
+                  month: "short",
+                  day: "numeric",
+                  timeZone: "UTC",
+                })}
+              </span>
+                </div>
+                {hero.schedDep && (
+                    <div className="tile-box">
+                      <span className="tile-label">Departs &middot; {hero.originIata}</span>
+                      <span className="tile-value">
+                  {time(heroIsLive && hero.actualDep ? hero.actualDep : hero.schedDep, hero.originTz)}
+                </span>
+                      <span className="tile-sub">
+                  {heroIsLive && hero.actualDep && <s>{time(hero.schedDep, hero.originTz)} </s>}
+                        {hero.terminal && <>Terminal {hero.terminal}</>}
+                        {hero.gate && <> &middot; Gate {hero.gate}</>}
+                </span>
+                    </div>
+                )}
+                {hero.schedArr && (
+                    <div className="tile-box">
+                      <span className="tile-label">Arrives &middot; {hero.destIata}</span>
+                      <span className="tile-value">
+                  {time(heroIsLive && hero.actualArr ? hero.actualArr : hero.schedArr, hero.destTz)}
+                </span>
+                      <span className="tile-sub">
+                  {heroIsLive && hero.actualArr && <s>{time(hero.schedArr, hero.destTz)} </s>}
+                        {heroIsLive && hero.actualArr && hero.schedArr && (() => {
+                          const d = minutesBetween(hero.actualArr, hero.schedArr);
+                          if (d > 0) return <span className="delay">{d} min late</span>;
+                          if (d < 0) return <span className="early">{-d} min early</span>;
+                          return <span>on time</span>;
+                        })()}
+                </span>
+                    </div>
+                )}
+              </div>
               {otherEnRoute.length > 0 && (
                   <p className="muted hint">
                     Also in the air:{" "}
@@ -331,8 +377,17 @@ export default function Dashboard() {
               )}
             </section>
         ) : (
-            <section className="card center">
-              <p className="muted">No flights yet \u2014 add one to see it here with a live map.</p>
+            <section className="card hero-empty">
+              <div className="hero-empty-art" aria-hidden="true">{"✈"}</div>
+              <h2>Where to next?</h2>
+              <p className="muted">
+                Add a flight to see it here with a live map, delays, and gates.
+                Invite family and their trips will show up too.
+              </p>
+              <div className="hero-empty-actions">
+                <button className="btn" onClick={() => setShowForm(true)}>+ Add a flight</button>
+                <Link className="btn btn-ghost" to="/friends">Invite family</Link>
+              </div>
             </section>
         )}
 
@@ -442,44 +497,79 @@ function FlightList({
         {flights.length === 0 && <p className="muted">{emptyText}</p>}
         <ul className="flight-list">
           {flights.map((f) => (
-              <li key={f.id}>
-                <div className="flight-row-main">
-                  <AirlineLogo iata={f.airlineIata} />{" "}
-                  <strong>{f.airlineIata}{f.flightNumber}</strong>{" "}
-                  <span className="muted">{airlineName(f.airlineIata)}</span>{" "}
-                  &middot; {f.originIata} &rarr; {f.destIata} &middot;{" "}
-                  {new Date(f.departureDate).toLocaleDateString([], { timeZone: "UTC" })} &middot;{" "}
-                  {STATUS_LABELS[f.status] ?? f.status}
-                  <Link className="link-btn map-link" to={`/flight/${f.id}`}>map</Link>
-                  <button className="link-btn map-link" onClick={() => share(f.id)}>share</button>
-                  <button className="link-btn" onClick={() => remove(f.id)}>remove</button>
-                </div>
-
-                {f.schedDep && (() => {
+              <li key={f.id} className="flight-tile">
+                {(() => {
                   const live = f.status === "ACTIVE" || f.status === "DIVERTED" || f.status === "LANDED";
                   return (
-                      <div className="muted detail">
-                        Departs {time(live && f.actualDep ? f.actualDep : f.schedDep, f.originTz)}
-                        {live && f.actualDep && <s className="muted"> {time(f.schedDep, f.originTz)}</s>}
-                        {f.terminal && <> &middot; Terminal {f.terminal}</>}
-                        {f.gate && <> &middot; Gate {f.gate}</>}
-                      </div>
-                  );
-                })()}
-
-                {f.schedArr && (() => {
-                  const live = f.status === "ACTIVE" || f.status === "DIVERTED" || f.status === "LANDED";
-                  return (
-                      <div className="muted detail">
-                        Arrives {time(live && f.actualArr ? f.actualArr : f.schedArr, f.destTz)}
-                        {live && f.actualArr && <s className="muted"> {time(f.schedArr, f.destTz)}</s>}
-                        {live && f.actualArr && (() => {
-                          const d = minutesBetween(f.actualArr, f.schedArr!);
-                          if (d > 0) return <span className="delay"> &middot; {d} min late</span>;
-                          if (d < 0) return <span className="early"> &middot; {-d} min early</span>;
-                          return <span> &middot; on time</span>;
-                        })()}
-                      </div>
+                      <>
+                        <div className="tile-head">
+                          <div className="tile-id">
+                            <AirlineLogo iata={f.airlineIata} />
+                            <strong>{f.airlineIata}{f.flightNumber}</strong>
+                            <span className="muted">{airlineName(f.airlineIata)}</span>
+                            <span className={f.status === "ACTIVE" ? "pill pill-live" : "pill"}>
+                        {STATUS_LABELS[f.status] ?? f.status}
+                      </span>
+                          </div>
+                          <div className="tile-actions">
+                            <Link className="link-btn map-link" to={`/flight/${f.id}`}>map</Link>
+                            <button className="link-btn map-link" onClick={() => share(f.id)}>share</button>
+                            <button className="link-btn" onClick={() => remove(f.id)}>remove</button>
+                          </div>
+                        </div>
+                        <div className="tile-grid">
+                          <div className="tile-box">
+                            <span className="tile-label">Route</span>
+                            <span className="tile-value">{f.originIata} &rarr; {f.destIata}</span>
+                            {(f.originCity || f.destCity) && (
+                                <span className="tile-sub">
+                          {f.originCity ?? f.originIata} to {f.destCity ?? f.destIata}
+                        </span>
+                            )}
+                          </div>
+                          <div className="tile-box">
+                            <span className="tile-label">Date</span>
+                            <span className="tile-value">
+                        {new Date(f.departureDate).toLocaleDateString([], {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                          timeZone: "UTC",
+                        })}
+                      </span>
+                          </div>
+                          {f.schedDep && (
+                              <div className="tile-box">
+                                <span className="tile-label">Departs</span>
+                                <span className="tile-value">
+                          {time(live && f.actualDep ? f.actualDep : f.schedDep, f.originTz)}
+                        </span>
+                                <span className="tile-sub">
+                          {live && f.actualDep && <s>{time(f.schedDep, f.originTz)} </s>}
+                                  {f.terminal && <>Terminal {f.terminal}</>}
+                                  {f.gate && <> &middot; Gate {f.gate}</>}
+                        </span>
+                              </div>
+                          )}
+                          {f.schedArr && (
+                              <div className="tile-box">
+                                <span className="tile-label">Arrives</span>
+                                <span className="tile-value">
+                          {time(live && f.actualArr ? f.actualArr : f.schedArr, f.destTz)}
+                        </span>
+                                <span className="tile-sub">
+                          {live && f.actualArr && <s>{time(f.schedArr, f.destTz)} </s>}
+                                  {live && f.actualArr && (() => {
+                                    const d = minutesBetween(f.actualArr, f.schedArr!);
+                                    if (d > 0) return <span className="delay">{d} min late</span>;
+                                    if (d < 0) return <span className="early">{-d} min early</span>;
+                                    return <span>on time</span>;
+                                  })()}
+                        </span>
+                              </div>
+                          )}
+                        </div>
+                      </>
                   );
                 })()}
               </li>

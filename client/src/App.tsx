@@ -77,11 +77,13 @@ export default function App() {
           </Link>
           <nav>
             <button
-                className="theme-toggle"
+                className="theme-switch"
                 onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
-                aria-label="Toggle theme"
+                aria-label="Toggle dark mode"
             >
-              {theme === "dark" ? "☀" : "☾"}
+              <span className="theme-switch-icon">{"☀"}</span>
+              <span className="theme-switch-icon">{"☾"}</span>
+              <span className="theme-switch-knob" />
             </button>
             {user ? (
                 <UserMenu user={user} onLogout={logout} />

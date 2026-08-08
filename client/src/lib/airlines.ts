@@ -15,7 +15,7 @@ export const AIRLINES: Airline[] = [
     { iata: "OH", name: "PSA Airlines" },
     { iata: "YX", name: "Republic Airways" },
     { iata: "OO", name: "SkyWest Airlines" },
-    { iata: "WN/SWA", name: "Southwest Airlines" },
+    { iata: "WN", name: "Southwest Airlines" },
     { iata: "NK", name: "Spirit Airlines" },
     { iata: "SY", name: "Sun Country Airlines" },
     { iata: "UA", name: "United Airlines" },

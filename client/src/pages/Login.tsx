@@ -1,4 +1,9 @@
+import { Navigate } from "react-router-dom";
+import { useAuth } from "../App";
+
 export default function Login() {
+    const { user, loading } = useAuth();
+    if (!loading && user) return <Navigate to="/" replace />;
     return (
         <div className="login-wrap">
             <div className="login-card">
@@ -10,8 +15,8 @@ export default function Login() {
                 </div>
                 <p className="login-tag">Know they landed safe.</p>
                 <p className="login-sub">
-                    Follow the flights of the people you love &mdash; live maps, delays,
-                    gates, and a simple link to share.
+                    Worry no longer! SafeFlight provides you with the ability to track the flights of your
+                    loved ones. Make sure they have a safe flight anywhere they go.
                 </p>
 
                 <a className="google-btn" href="/api/auth/google">
@@ -26,15 +31,12 @@ export default function Login() {
 
                 <div className="login-points">
                     <div className="login-point">
-                        <span className="login-emoji" aria-hidden="true">&#128506;</span>
                         Live route &amp; position on a map
                     </div>
                     <div className="login-point">
-                        <span className="login-emoji" aria-hidden="true">&#128101;</span>
                         Follow friends &amp; family automatically
                     </div>
                     <div className="login-point">
-                        <span className="login-emoji" aria-hidden="true">&#128279;</span>
                         Share any flight with one link
                     </div>
                 </div>
