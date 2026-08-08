@@ -12,8 +12,9 @@ model User {
   googleId  String   @unique
   email     String   @unique
   name      String
-  avatarUrl String?
-  createdAt DateTime @default(now())
+  avatarUrl   String?
+  inviteToken String?  @unique
+  createdAt   DateTime @default(now())
 
   flights             Flight[]
   cards               Card[]
@@ -52,6 +53,8 @@ model Flight {
 
   originTz      String?
   destTz        String?
+  originCity    String?
+  destCity      String?
   originLat     Float?
   originLon     Float?
   destLat       Float?

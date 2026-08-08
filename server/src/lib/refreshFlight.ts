@@ -5,13 +5,13 @@ import type { Flight } from "@prisma/client";
 export const REFRESH_MIN_GAP_MIN = 10;
 
 export async function refreshFlight(
-  flight: Flight
+    flight: Flight
 ): Promise<{ flight: Flight; refreshed: boolean }> {
   const now = new Date();
 
   if (
-    flight.lastPolledAt &&
-    now.getTime() - flight.lastPolledAt.getTime() < REFRESH_MIN_GAP_MIN * 60_000
+      flight.lastPolledAt &&
+      now.getTime() - flight.lastPolledAt.getTime() < REFRESH_MIN_GAP_MIN * 60_000
   ) {
     return { flight, refreshed: false };
   }
@@ -44,6 +44,8 @@ export async function refreshFlight(
       gate: status.gate ?? flight.gate,
       originTz: status.originTz ?? flight.originTz,
       destTz: status.destTz ?? flight.destTz,
+      originCity: status.originCity ?? flight.originCity,
+      destCity: status.destCity ?? flight.destCity,
       originLat: status.originLat ?? flight.originLat,
       originLon: status.originLon ?? flight.originLon,
       destLat: status.destLat ?? flight.destLat,

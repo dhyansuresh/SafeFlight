@@ -32,8 +32,8 @@ export default function Friends() {
     setMessage("");
     setFound(null);
     const res = await fetch(
-      `/api/friends/search?email=${encodeURIComponent(email.trim())}`,
-      { credentials: "include" }
+        `/api/friends/search?email=${encodeURIComponent(email.trim())}`,
+        { credentials: "include" }
     );
     const data = await res.json();
     if (!res.ok) {
@@ -86,87 +86,111 @@ export default function Friends() {
   if (loading) return <p>Loading&hellip;</p>;
   if (!user)
     return (
-      <div className="card center">
-        <p>
-          <Link to="/login">Sign in</Link> to manage friends.
-        </p>
-      </div>
+        <div className="card center">
+          <p>
+            <Link to="/login">Sign in</Link> to manage friends.
+          </p>
+        </div>
     );
 
   return (
-    <div>
-      <h1>Friends &amp; family</h1>
+      <div>
+        <h1>Friends &amp; family</h1>
 
-      <section className="card">
-        <h2>Add someone</h2>
-        <p className="muted">
-          Enter their full email address — the one they use to sign in to
-          SafeFlight.
-        </p>
-        <form onSubmit={search} className="flight-form">
-          <input
-            type="email"
-            placeholder="their-email@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            style={{ minWidth: "260px" }}
-          />
-          <button className="btn" type="submit">Find</button>
-        </form>
-        {found && (
-          <p>
-            Found <strong>{found.name}</strong> ({found.email}){" "}
-            <button className="btn" onClick={() => sendRequest(found.id)}>
-              Send request
-            </button>
-          </p>
-        )}
-        {message && <p className="hint">{message}</p>}
-      </section>
-
-      {requests.length > 0 && (
         <section className="card">
-          <h2>Requests</h2>
+          <h2>Invite by link</h2>
+          <p className="muted">
+            Share this link with family &mdash; when they sign in through it,
+            you&rsquo;re added as friends automatically.
+          </p>
+          <button
+              className="btn"
+              onClick={async () => {
+                const r = await fetch("/api/invite/mine", {
+                  method: "POST",
+                  credentials: "include",
+                });
+                const d = await r.json();
+                if (!d.inviteToken) return alert("Could not create link");
+                const url = `${window.location.origin}/join/${d.inviteToken}`;
+                await navigator.clipboard.writeText(url);
+                alert(`Invite link copied:\n${url}`);
+              }}
+          >
+            Copy my invite link
+          </button>
+        </section>
+
+        <section className="card">
+          <h2>Add someone</h2>
+          <p className="muted">
+            Enter their full email address — the one they use to sign in to
+            SafeFlight.
+          </p>
+          <form onSubmit={search} className="flight-form">
+            <input
+                type="email"
+                placeholder="their-email@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                style={{ minWidth: "260px" }}
+            />
+            <button className="btn" type="submit">Find</button>
+          </form>
+          {found && (
+              <p>
+                Found <strong>{found.name}</strong> ({found.email}){" "}
+                <button className="btn" onClick={() => sendRequest(found.id)}>
+                  Send request
+                </button>
+              </p>
+          )}
+          {message && <p className="hint">{message}</p>}
+        </section>
+
+        {requests.length > 0 && (
+            <section className="card">
+              <h2>Requests</h2>
+              <ul className="flight-list">
+                {requests.map((r) => (
+                    <li key={r.id}>
+                      <strong>{r.requester.name}</strong>{" "}
+                      <span className="muted">{r.requester.email}</span>
+                      <button className="link-btn map-link" onClick={() => respond(r.id, "accept")}>
+                        accept
+                      </button>
+                      <button className="link-btn" onClick={() => respond(r.id, "decline")}>
+                        decline
+                      </button>
+                    </li>
+                ))}
+              </ul>
+            </section>
+        )}
+
+        <section className="card">
+          <h2>Your friends</h2>
+          {friends.length === 0 && (
+              <p className="muted">
+                No friends yet. Add someone above to follow each other's flights.
+              </p>
+          )}
           <ul className="flight-list">
-            {requests.map((r) => (
-              <li key={r.id}>
-                <strong>{r.requester.name}</strong>{" "}
-                <span className="muted">{r.requester.email}</span>
-                <button className="link-btn map-link" onClick={() => respond(r.id, "accept")}>
-                  accept
-                </button>
-                <button className="link-btn" onClick={() => respond(r.id, "decline")}>
-                  decline
-                </button>
-              </li>
+            {friends.map((f) => (
+                <li key={f.friendshipId}>
+                  <strong>{f.user.name}</strong>{" "}
+                  <span className="muted">{f.user.email}</span>
+                  <button
+                      className="link-btn"
+                      onClick={() => unfriend(f.friendshipId, f.user.name)}
+                  >
+                    remove
+                  </button>
+                </li>
             ))}
           </ul>
         </section>
-      )}
-
-      <section className="card">
-        <h2>Your friends</h2>
-        {friends.length === 0 && (
-          <p className="muted">
-            No friends yet. Add someone above to follow each other's flights.
-          </p>
-        )}
-        <ul className="flight-list">
-          {friends.map((f) => (
-            <li key={f.friendshipId}>
-              <strong>{f.user.name}</strong>{" "}
-              <span className="muted">{f.user.email}</span>
-              <button
-                className="link-btn"
-                onClick={() => unfriend(f.friendshipId, f.user.name)}
-              >
-                remove
-              </button>
-            </li>
-          ))}
-        </ul>
-      </section>
-    </div>
+      </div>
   );
 }

@@ -37,7 +37,8 @@ router.get("/", async (req, res) => {
   res.json({ flights });
 });
 
-// One flight. Visible to the owner always, and to accepted friends
+// One flight. Visible to the owner always, and to accepted friends while the
+// flight is upcoming, en route, or landed within the visibility window.
 router.get("/:id", async (req, res) => {
   const userId = (req.user as { id: string }).id;
   const flight = await prisma.flight.findFirst({
@@ -60,6 +61,8 @@ router.get("/:id", async (req, res) => {
 });
 
 // Live ADS-B position + flown track for one flight, via OpenSky.
+// Returns nulls rather than erroring when the aircraft isn't visible —
+// coverage is patchy and the flight may not be airborne.
 router.get("/:id/live", async (req, res) => {
   const userId = (req.user as { id: string }).id;
   const f = await prisma.flight.findFirst({ where: { id: req.params.id } });
@@ -89,6 +92,29 @@ router.get("/:id/live", async (req, res) => {
   const track = position ? await fetchTrack(position.icao24) : null;
 
   res.json({ position, track, callsign });
+});
+
+router.post("/refresh-all", async (req, res) => {
+  const userId = (req.user as { id: string }).id;
+  const today = new Date().toISOString().slice(0, 10);
+  const flights = await prisma.flight.findMany({ where: { ownerId: userId } });
+
+  const board = flights.filter(
+      (f) =>
+          f.status === "ACTIVE" ||
+          f.status === "DIVERTED" ||
+          (f.status !== "LANDED" && f.departureDate.toISOString().slice(0, 10) >= today)
+  );
+
+  let refreshed = 0;
+  for (const f of board) {
+    const result = await refreshFlight(f);
+    if (result.refreshed) {
+      refreshed++;
+      await new Promise((r) => setTimeout(r, 1200));
+    }
+  }
+  res.json({ ok: true, considered: board.length, refreshed });
 });
 
 // Owner-or-friend manual refresh, throttled server-side.
