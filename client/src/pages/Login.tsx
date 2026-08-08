@@ -19,8 +19,8 @@ export default function Login() {
                     loved ones. Make sure they have a safe flight anywhere they go.
                 </p>
 
-                <a className="google-btn" href="/api/auth/google">
-                    <svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true">
+                <a className="google-btn" href={`${import.meta.env.VITE_API_URL ?? ""}/api/auth/google`}>
+                <svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true">
                         <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92a8.78 8.78 0 0 0 2.68-6.62z" />
                         <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.8.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.93v2.33A9 9 0 0 0 9 18z" />
                         <path fill="#FBBC05" d="M3.97 10.72a5.41 5.41 0 0 1 0-3.44V4.95H.93a9 9 0 0 0 0 8.1l3.04-2.33z" />
