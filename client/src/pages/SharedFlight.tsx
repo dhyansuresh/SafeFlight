@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import { useAuth } from "../App";
+import { useParams } from "react-router-dom";
 import FlightMapView, {
   toIcao,
   type MappableFlight,
@@ -9,12 +8,14 @@ import FlightMapView, {
 } from "../components/FlightMapView";
 import { airlineName } from "../lib/airlines";
 
-type Flight = MappableFlight & {
+type SharedFlight = MappableFlight & {
   departureDate: string;
   terminal: string | null;
   gate: string | null;
   originTz: string | null;
   destTz: string | null;
+  lastPolledAt: string | null;
+  owner: { name: string };
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -37,32 +38,33 @@ const time = (iso: string, tz?: string | null) =>
 const minutesBetween = (a: string, b: string) =>
   Math.round((new Date(a).getTime() - new Date(b).getTime()) / 60000);
 
-function Delta({ actual, scheduled }: { actual: string; scheduled: string }) {
-  const d = minutesBetween(actual, scheduled);
-  if (d > 0) return <span className="delay"> &middot; {d} min late</span>;
-  if (d < 0) return <span className="early"> &middot; {-d} min early</span>;
-  return <span> &middot; on time</span>;
+function agoLabel(iso: string | null): string {
+  if (!iso) return "never";
+  const min = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+  if (min < 1) return "just now";
+  if (min < 60) return `${min}m ago`;
+  return `${Math.round(min / 60)}h ago`;
 }
 
-export default function FlightDetail() {
-  const { id } = useParams<{ id: string }>();
-  const { user, loading } = useAuth();
-  const [flight, setFlight] = useState<Flight | null>(null);
+export default function SharedFlightPage() {
+  const { token } = useParams<{ token: string }>();
+  const [flight, setFlight] = useState<SharedFlight | null>(null);
   const [metars, setMetars] = useState<Metar[]>([]);
   const [live, setLive] = useState<LivePosition | null>(null);
   const [track, setTrack] = useState<[number, number][] | null>(null);
   const [notFound, setNotFound] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    if (!user || !id) return;
-    fetch(`/api/flights/${id}`, { credentials: "include" })
+    if (!token) return;
+    fetch(`/api/shared/${token}`)
       .then((r) => {
-        if (!r.ok) throw new Error("not found");
+        if (!r.ok) throw new Error("nf");
         return r.json();
       })
       .then((d) => setFlight(d.flight))
       .catch(() => setNotFound(true));
-  }, [user, id]);
+  }, [token]);
 
   useEffect(() => {
     if (!flight) return;
@@ -71,14 +73,12 @@ export default function FlightDetail() {
       .then((r) => r.json())
       .then((d) => setMetars(Array.isArray(d.metars) ? d.metars : []))
       .catch(() => setMetars([]));
-  }, [flight]);
+  }, [flight?.originIata, flight?.destIata]);
 
-  // Live ADS-B position. Only worth asking while the flight is airborne.
   useEffect(() => {
-    if (!flight || flight.status !== "ACTIVE") return;
-
+    if (!flight || flight.status !== "ACTIVE" || !token) return;
     const load = () => {
-      fetch(`/api/flights/${flight.id}/live`, { credentials: "include" })
+      fetch(`/api/shared/${token}/live`)
         .then((r) => r.json())
         .then((d) => {
           setLive(d.position ?? null);
@@ -86,34 +86,35 @@ export default function FlightDetail() {
         })
         .catch(() => {});
     };
-
     load();
-    const timer = setInterval(load, 60_000); // refresh once a minute
+    const timer = setInterval(load, 60_000);
     return () => clearInterval(timer);
-  }, [flight]);
+  }, [flight?.status, token]);
 
-  if (loading) return <p>Loading&hellip;</p>;
-  if (!user)
-    return (
-      <div className="card center">
-        <p>
-          <Link to="/login">Sign in</Link> to view this flight.
-        </p>
-      </div>
-    );
+  async function refresh() {
+    if (!token) return;
+    setRefreshing(true);
+    try {
+      const res = await fetch(`/api/shared/${token}/refresh`, { method: "POST" });
+      const d = await res.json();
+      if (d.flight) setFlight(d.flight);
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
   if (notFound)
     return (
       <div className="card center">
-        <p>Flight not found.</p>
-        <Link to="/">Back to your flights</Link>
+        <p>This flight link is invalid or has been revoked.</p>
       </div>
     );
   if (!flight) return <p>Loading flight&hellip;</p>;
 
   return (
     <div>
-      <p>
-        <Link to="/">&larr; Back to your flights</Link>
+      <p className="muted">
+        {flight.owner.name} shared this flight with you via SafeFlight
       </p>
 
       <h1>
@@ -125,14 +126,16 @@ export default function FlightDetail() {
         {flight.originIata} &rarr; {flight.destIata} &middot;{" "}
         {new Date(flight.departureDate).toLocaleDateString([], { timeZone: "UTC" })} &middot;{" "}
         {STATUS_LABELS[flight.status] ?? flight.status}
+        <button className="link-btn map-link" onClick={refresh} disabled={refreshing}>
+          {refreshing ? "refreshing\u2026" : `refresh (updated ${agoLabel(flight.lastPolledAt)})`}
+        </button>
       </p>
 
       <section className="card">
         <FlightMapView flight={flight} metars={metars} live={live} track={track} />
         {flight.status === "ACTIVE" && !live && (
           <p className="muted hint">
-            No live signal for this aircraft right now &mdash; showing an
-            estimated position. Coverage depends on volunteer ground receivers.
+            No live signal right now &mdash; showing an estimated position.
           </p>
         )}
       </section>
@@ -145,9 +148,12 @@ export default function FlightDetail() {
             {flight.actualDep && (
               <s className="muted"> {time(flight.schedDep, flight.originTz)}</s>
             )}
-            {flight.actualDep && (
-              <Delta actual={flight.actualDep} scheduled={flight.schedDep} />
-            )}
+            {flight.actualDep && (() => {
+              const d = minutesBetween(flight.actualDep, flight.schedDep!);
+              if (d > 0) return <span className="delay"> &middot; {d} min late</span>;
+              if (d < 0) return <span className="early"> &middot; {-d} min early</span>;
+              return <span> &middot; on time</span>;
+            })()}
             {flight.terminal && <> &middot; Terminal {flight.terminal}</>}
             {flight.gate && <> &middot; Gate {flight.gate}</>}
           </p>
@@ -164,9 +170,12 @@ export default function FlightDetail() {
             {flight.actualArr && (
               <s className="muted"> {time(flight.schedArr, flight.destTz)}</s>
             )}
-            {flight.actualArr && (
-              <Delta actual={flight.actualArr} scheduled={flight.schedArr} />
-            )}
+            {flight.actualArr && (() => {
+              const d = minutesBetween(flight.actualArr, flight.schedArr!);
+              if (d > 0) return <span className="delay"> &middot; {d} min late</span>;
+              if (d < 0) return <span className="early"> &middot; {-d} min early</span>;
+              return <span> &middot; on time</span>;
+            })()}
           </p>
         ) : (
           <p className="muted">No arrival time yet.</p>

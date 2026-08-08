@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useAuth } from "../App";
 import { Link } from "react-router-dom";
-import { AIRLINES, airlineName } from "../lib/arlines";
+import { AIRLINES, airlineName } from "../lib/airlines";
 
 type FriendFlight = Flight & { owner: { id: string; name: string } };
 
@@ -19,9 +19,10 @@ type Flight = {
   actualArr: string | null;
   terminal: string | null;
   gate: string | null;
+  lastPolledAt: string | null;
 };
 
-// Database enum -> friendly label. The DB keeps ACTIVE; users read "En route".
+// Database enum
 const STATUS_LABELS: Record<string, string> = {
   SCHEDULED: "Scheduled",
   ACTIVE: "En route",
@@ -92,7 +93,6 @@ export default function Dashboard() {
       </div>
     );
 
-  // Status wins when we have it otherwise fall back to the calendar date.
   const today = todayUTC();
   const enRoute = flights.filter((f) => f.status === "ACTIVE" || f.status === "DIVERTED");
   const past = flights.filter(
@@ -206,6 +206,26 @@ function FlightList({
     onChanged();
   }
 
+  async function share(id: string) {
+    const res = await fetch(`/api/flights/${id}/share`, {
+      method: "POST",
+      credentials: "include",
+    });
+    const d = await res.json();
+    if (!d.shareToken) return alert("Could not create link");
+    const url = `${window.location.origin}/s/${d.shareToken}`;
+    await navigator.clipboard.writeText(url);
+    alert(`Link copied:\n${url}\n\nAnyone with this link can view the flight.`);
+  }
+
+  async function refresh(id: string) {
+    await fetch(`/api/flights/${id}/refresh`, {
+      method: "POST",
+      credentials: "include",
+    });
+    onChanged();
+  }
+
   async function edit(id: string) {
     const destIata = prompt("New destination airport (3 letters, e.g. LAX):");
     if (!destIata) return;
@@ -238,6 +258,8 @@ function FlightList({
               {new Date(f.departureDate).toLocaleDateString([], { timeZone: "UTC" })} ·{" "}
               {STATUS_LABELS[f.status] ?? f.status}
               <Link className="link-btn map-link" to={`/flight/${f.id}`}>map</Link>
+              <button className="link-btn map-link" onClick={() => refresh(f.id)}>refresh</button>
+              <button className="link-btn map-link" onClick={() => share(f.id)}>share</button>
               <button className="link-btn" onClick={() => remove(f.id)}>remove</button>
               <button className="link-btn" onClick={() => edit(f.id)}>edit</button>
             </div>

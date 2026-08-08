@@ -8,6 +8,7 @@ import authRoutes from "./routes/auth.js";
 import flightRoutes from "./routes/flights.js";
 import weatherRoutes from "./routes/weather.js";
 import friendRoutes from "./routes/friends.js";
+import sharedRoutes from "./routes/shared.js";
 
 const app = express();
 const PORT = Number(process.env.PORT ?? 4000);
@@ -40,7 +41,7 @@ configurePassport();
 app.use(passport.initialize());
 app.use(passport.session());
 
-// routes
+//Routes
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true, time: new Date().toISOString() });
 });
@@ -49,6 +50,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/flights", flightRoutes);
 app.use("/api/weather", weatherRoutes);
 app.use("/api/friends", friendRoutes);
+app.use("/api/shared", sharedRoutes); // public, no auth
 
 app.listen(PORT, () => {
   console.log(`API listening on http://localhost:${PORT}`);

@@ -1,5 +1,3 @@
-// SafeFlight data model
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -39,12 +37,12 @@ model Flight {
 
   airlineIata   String
   flightNumber  String
-  departureDate DateTime // date of departure
+  departureDate DateTime
 
-  originIata    String // "MCO"
-  destIata      String // "JFK"
+  originIata    String
+  destIata      String
 
-  schedDep      DateTime? // all times stored UTC
+  schedDep      DateTime?
   schedArr      DateTime?
   actualDep     DateTime?
   actualArr     DateTime?
@@ -52,18 +50,18 @@ model Flight {
   gate          String?
   terminal      String?
 
+  originTz      String?
+  destTz        String?
+  originLat     Float?
+  originLon     Float?
+  destLat       Float?
+  destLon       Float?
+
   lastPolledAt  DateTime?
+  shareToken    String?      @unique
   createdAt     DateTime     @default(now())
 
   cardFlights   CardFlight[]
-  originTz  String?
-  destTz    String?
-
-  // airport locations
-  originLat Float?
-  originLon Float?
-  destLat   Float?
-  destLon   Float?
 
   @@index([ownerId, departureDate])
 }
@@ -91,7 +89,7 @@ model Card {
   ownerId    String
   owner      User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   title      String
-  shareToken String   @unique @default(cuid()) // unguessable public link token
+  shareToken String   @unique @default(cuid())
   isPublic   Boolean  @default(false)
   createdAt  DateTime @default(now())
 
@@ -107,14 +105,13 @@ model CardFlight {
   @@id([cardId, flightId])
 }
 
-// Airports dataset
 model Airport {
-  iata      String  @id // "MCO"
-  icao      String? // "KMCO"
+  iata      String  @id
+  icao      String?
   name      String
   city      String?
   country   String?
   latitude  Float
   longitude Float
-  tzName    String? // IANA timezone, e.g. "America/New_York"
+  tzName    String?
 }
