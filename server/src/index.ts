@@ -22,13 +22,14 @@ if (isProd) {
     app.set("trust proxy", 1);
 }
 
-
-app.use(
-    cors({
-        origin: process.env.CLIENT_URL ?? "http://localhost:5173",
-        credentials: true,
-    })
-);
+if (!isProd) {
+    app.use(
+        cors({
+            origin: process.env.CLIENT_URL ?? "http://localhost:5173",
+            credentials: true,
+        })
+    );
+}
 
 app.use(express.json());
 
@@ -47,7 +48,7 @@ app.use(
         saveUninitialized: false,
         cookie: {
             httpOnly: true,
-            sameSite: isProd ? "none" : "lax",
+            sameSite: "lax",
             secure: isProd,
             maxAge: 1000 * 60 * 60 * 24 * 7,
         },
@@ -57,6 +58,11 @@ app.use(
 configurePassport();
 app.use(passport.initialize());
 app.use(passport.session());
+
+app.use("/api", (_req, res, next) => {
+    res.set("Cache-Control", "no-store");
+    next();
+});
 
 app.get("/api/health", (_req, res) => {
     res.json({ ok: true, time: new Date().toISOString() });
@@ -69,11 +75,17 @@ app.use("/api/friends", friendRoutes);
 app.use("/api/shared", sharedRoutes);
 app.use("/api/invite", inviteRoutes);
 
-app.listen(PORT, () => {
-    console.log(`API listening on http://localhost:${PORT}`);
-});
+if (isProd) {
+    const __dirname = path.dirname(fileURLToPath(import.meta.url));
+    const clientDist = path.resolve(__dirname, "../../client/dist");
+    console.log("Serving client from:", clientDist);
+    app.use(express.static(clientDist));
+    app.get("*", (req, res, next) => {
+        if (req.path.startsWith("/api/")) return next();
+        res.sendFile(path.join(clientDist, "index.html"));
+    });
+}
 
-app.use("/api", (_req, res, next) => {
-    res.set("Cache-Control", "no-store");
-    next();
+app.listen(PORT, () => {
+    console.log(`API listening on port ${PORT}`);
 });
