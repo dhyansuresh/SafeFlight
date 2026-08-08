@@ -29,7 +29,7 @@ router.get("/metar", async (req, res) => {
 
   try {
     const url = `https://aviationweather.gov/api/data/metar?ids=${ids}&format=json`;
-    const r = await fetch(url, { headers: { "User-Agent": "flighttrack-student-project" } });
+    const r = await fetch(url, { headers: { "User-Agent": "safeflight-student-project" } });
     if (!r.ok) throw new Error(`aviationweather.gov returned ${r.status}`);
     const data = await r.json();
     cache.set(ids, { at: Date.now(), data });
