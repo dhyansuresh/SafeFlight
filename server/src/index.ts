@@ -72,3 +72,8 @@ app.use("/api/invite", inviteRoutes);
 app.listen(PORT, () => {
     console.log(`API listening on http://localhost:${PORT}`);
 });
+
+app.use("/api", (_req, res, next) => {
+    res.set("Cache-Control", "no-store");
+    next();
+});
