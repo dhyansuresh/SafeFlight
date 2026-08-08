@@ -9,7 +9,7 @@ router.use(requireAuth);
 
 const publicUser = { id: true, name: true, email: true, avatarUrl: true } as const;
 
-// Exact-email lookup
+// Exact-email lookup only
 router.get("/search", async (req, res) => {
   const userId = (req.user as { id: string }).id;
   const email = String(req.query.email ?? "").trim().toLowerCase();
@@ -24,7 +24,7 @@ router.get("/search", async (req, res) => {
   res.json({ user: found });
 });
 
-// Send a request. If they already requested, auto-accept instead.
+// Send a request. If they already requested us, auto-accept instead.
 router.post("/request", async (req, res) => {
   const userId = (req.user as { id: string }).id;
   const addresseeId = String(req.body?.userId ?? "");
@@ -51,7 +51,7 @@ router.post("/request", async (req, res) => {
     if (existing.requesterId === userId) {
       return res.status(409).json({ error: "Request already sent" });
     }
-    // They asked us first — both sides want it, so accept.
+    // both sides want it, so accept.
     const accepted = await prisma.friendship.update({
       where: { id: existing.id },
       data: { status: "ACCEPTED" },
@@ -86,7 +86,7 @@ router.post("/requests/:id/accept", async (req, res) => {
   res.json({ ok: true });
 });
 
-// Decline just deletes the row — re-requesting later is allowed.
+// Decline just deletes the row
 router.post("/requests/:id/decline", async (req, res) => {
   const userId = (req.user as { id: string }).id;
   const result = await prisma.friendship.deleteMany({
@@ -116,7 +116,7 @@ router.get("/", async (req, res) => {
   res.json({ friends });
 });
 
-// Unfriend (either side may).
+// Unfriend
 router.delete("/:friendshipId", async (req, res) => {
   const userId = (req.user as { id: string }).id;
   const result = await prisma.friendship.deleteMany({
@@ -128,6 +128,32 @@ router.delete("/:friendshipId", async (req, res) => {
   });
   if (result.count === 0) return res.status(404).json({ error: "Not found" });
   res.json({ ok: true });
+});
+
+router.get("/:userId/flights", async (req, res) => {
+  const userId = (req.user as { id: string }).id;
+  const targetId = req.params.userId;
+
+  const friendIds = await acceptedFriendIds(userId);
+  if (targetId !== userId && !friendIds.includes(targetId)) {
+    return res.status(404).json({ error: "Not found" });
+  }
+
+  const owner = await prisma.user.findUnique({
+    where: { id: targetId },
+    select: publicUser,
+  });
+  if (!owner) return res.status(404).json({ error: "Not found" });
+
+  const flights = await prisma.flight.findMany({
+    where: {
+      ownerId: targetId,
+      ...(targetId === userId ? {} : friendVisibleFlightWhere()),
+    },
+    orderBy: { departureDate: "asc" },
+  });
+
+  res.json({ owner, flights });
 });
 
 // Friends' flights, filtered by the visibility rule:

@@ -4,6 +4,7 @@ import { Link, Navigate } from "react-router-dom";
 import { AIRLINES, airlineName } from "../lib/airlines";
 import FlightMapView, { toIcao, type Metar, type LivePosition } from "../components/FlightMapView";
 import AirlineLogo from "../components/AirlineLogo";
+import FriendCard from "../components/FriendCard";
 
 type Flight = {
   id: string;
@@ -136,7 +137,7 @@ export default function Dashboard() {
   const heroOwner = ownHero ? null : friendHero?.owner ?? null;
   const heroIsLive = hero != null && (hero.status === "ACTIVE" || hero.status === "DIVERTED");
   const otherEnRoute = enRoute.slice(1);
-  const upcomingBelow = ownHero && !heroIsLive ? upcoming.slice(1) : upcoming;
+  const upcomingBelow = upcoming;
 
   const heroId = hero?.id ?? null;
   const heroStatus = hero?.status ?? null;
@@ -180,12 +181,13 @@ export default function Dashboard() {
       byOwner.set(f.owner.id, list);
     }
     return friendUsers.map((owner) => {
-      const fs = byOwner.get(owner.id) ?? [];
-      const active = fs.find((f) => f.status === "ACTIVE" || f.status === "DIVERTED");
-      const next = fs
-          .filter((f) => f.status !== "LANDED")
-          .sort((a, b) => a.departureDate.localeCompare(b.departureDate))[0];
-      return { owner, flight: active ?? next ?? fs[0] ?? null };
+      const fs = (byOwner.get(owner.id) ?? []).slice().sort((a, b) => {
+        const aLive = a.status === "ACTIVE" || a.status === "DIVERTED" ? 0 : 1;
+        const bLive = b.status === "ACTIVE" || b.status === "DIVERTED" ? 0 : 1;
+        if (aLive !== bLive) return aLive - bLive;
+        return a.departureDate.localeCompare(b.departureDate);
+      });
+      return { owner, flights: fs };
     });
   }, [friendFlights, friendUsers]);
 
@@ -247,7 +249,7 @@ export default function Dashboard() {
                     onChange={(e) => setForm({ ...form, airlineIata: e.target.value })}
                     required
                 >
-                  <option value="">Select airline</option>
+                  <option value="">Select airline\u2026</option>
                   {AIRLINES.map((a) => (
                       <option key={a.iata} value={a.iata}>
                         {a.name} ({a.iata})
@@ -284,7 +286,7 @@ export default function Dashboard() {
                 />
                 <button className="btn" type="submit">Add</button>
               </form>
-              <p className="hint">Flight numbers are usually 3 or 4 digits just the number, no airline code.</p>
+              <p className="hint">Flight numbers are usually 3 or 4 digits \u2014 just the number, no airline code.</p>
               {error && <p className="error">{error}</p>}
             </section>
         )}
@@ -401,41 +403,8 @@ export default function Dashboard() {
               </Link>
           ) : (
               <div className="friend-row">
-                {friendCards.map(({ owner, flight: f }) => (
-                    <Link
-                        key={owner.id}
-                        className="friend-card"
-                        to={f ? `/flight/${f.id}` : "/friends"}
-                    >
-                      <Avatar url={owner.avatarUrl} name={owner.name} />
-                      <div className="friend-name">{owner.name.split(" ")[0]}</div>
-                      {f ? (
-                          <>
-                            <div className="friend-flight">
-                              {f.airlineIata}{f.flightNumber}
-                            </div>
-                            <div className="friend-route">
-                              {f.originCity ?? f.originIata} &rarr; {f.destCity ?? f.destIata}
-                            </div>
-                            <div className="friend-date">
-                              {new Date(f.departureDate).toLocaleDateString([], {
-                                month: "short",
-                                day: "numeric",
-                                timeZone: "UTC",
-                              })}
-                            </div>
-                            <div
-                                className={
-                                  f.status === "ACTIVE" ? "friend-status live" : "friend-status"
-                                }
-                            >
-                              {STATUS_LABELS[f.status] ?? f.status}
-                            </div>
-                          </>
-                      ) : (
-                          <div className="friend-status muted">No trips</div>
-                      )}
-                    </Link>
+                {friendCards.map(({ owner, flights: fs }) => (
+                    <FriendCard key={owner.id} owner={owner} flights={fs} />
                 ))}
               </div>
           )}

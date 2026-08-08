@@ -93,7 +93,7 @@ export default function Friends() {
         <section className="card">
           <h2>Invite by link</h2>
           <p className="muted">
-            Share this link with family &mdash; when they sign in through it,
+            Share this link with family and family! When they sign in through it,
             you&rsquo;re added as friends automatically.
           </p>
           <button
@@ -117,7 +117,7 @@ export default function Friends() {
         <section className="card">
           <h2>Add someone</h2>
           <p className="muted">
-            Enter their full email address — the one they use to sign in to
+            Enter their full email address, the one they use to sign in to
             SafeFlight.
           </p>
           <form onSubmit={search} className="flight-form">

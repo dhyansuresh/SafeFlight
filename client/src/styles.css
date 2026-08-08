@@ -556,3 +556,41 @@ main { max-width: 900px; margin: 0 auto; padding: 1rem 1.25rem 3rem; }
 
 
 .hero-tiles { margin-top: 0.8rem; }
+
+.friend-identity,
+.friend-flight-link {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  text-decoration: none;
+  color: inherit;
+}
+.friend-identity:hover .friend-name { color: var(--sky); }
+.friend-flight-link:hover .friend-flight { color: var(--sky); }
+
+.friend-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+}
+.friend-pager button {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 0.95rem;
+  line-height: 1;
+  padding: 0;
+}
+.friend-pager button:hover { background: var(--sky-soft); border-color: var(--sky); color: var(--sky); }
+[data-theme="dark"] .friend-pager button { background: #0f1830; }
+
+.avatar-lg-sm { width: 64px; height: 64px; font-size: 1.5rem; }
