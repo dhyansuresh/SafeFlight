@@ -17,20 +17,18 @@ import inviteRoutes from "./routes/invite.js";
 const app = express();
 const PORT = Number(process.env.PORT ?? 4000);
 const isProd = process.env.NODE_ENV === "production";
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 if (isProd) {
     app.set("trust proxy", 1);
 }
 
-if (!isProd) {
-    app.use(
-        cors({
-            origin: process.env.CLIENT_URL ?? "http://localhost:5173",
-            credentials: true,
-        })
-    );
-}
+
+app.use(
+    cors({
+        origin: process.env.CLIENT_URL ?? "http://localhost:5173",
+        credentials: true,
+    })
+);
 
 app.use(express.json());
 
@@ -49,7 +47,7 @@ app.use(
         saveUninitialized: false,
         cookie: {
             httpOnly: true,
-            sameSite: "lax",
+            sameSite: isProd ? "none" : "lax",
             secure: isProd,
             maxAge: 1000 * 60 * 60 * 24 * 7,
         },
@@ -70,15 +68,6 @@ app.use("/api/weather", weatherRoutes);
 app.use("/api/friends", friendRoutes);
 app.use("/api/shared", sharedRoutes);
 app.use("/api/invite", inviteRoutes);
-
-if (isProd) {
-    const clientDist = path.resolve(__dirname, "../../client/dist");
-    app.use(express.static(clientDist));
-    app.get("*", (req, res, next) => {
-        if (req.path.startsWith("/api/")) return next();
-        res.sendFile(path.join(clientDist, "index.html"));
-    });
-}
 
 app.listen(PORT, () => {
     console.log(`API listening on http://localhost:${PORT}`);
