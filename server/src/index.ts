@@ -7,7 +7,7 @@ import { configurePassport } from "./lib/passport.js";
 import authRoutes from "./routes/auth.js";
 import flightRoutes from "./routes/flights.js";
 import weatherRoutes from "./routes/weather.js";
-import devRoutes from "./routes/dev.js"
+import friendRoutes from "./routes/friends.js";
 
 const app = express();
 const PORT = Number(process.env.PORT ?? 4000);
@@ -21,7 +21,7 @@ app.use(
 );
 app.use(express.json());
 
-// Session cookie.
+// Session cookie
 app.use(
   session({
     secret: process.env.SESSION_SECRET ?? "dev-secret-change-me",
@@ -40,7 +40,7 @@ configurePassport();
 app.use(passport.initialize());
 app.use(passport.session());
 
-// Routes
+// routes
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true, time: new Date().toISOString() });
 });
@@ -48,7 +48,7 @@ app.get("/api/health", (_req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/flights", flightRoutes);
 app.use("/api/weather", weatherRoutes);
-app.use("/api/dev", devRoutes);
+app.use("/api/friends", friendRoutes);
 
 app.listen(PORT, () => {
   console.log(`API listening on http://localhost:${PORT}`);

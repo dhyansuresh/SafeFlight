@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { requireAuth } from "../middleware/requireAuth.js";
 import { findLivePosition, fetchTrack, toCallsign } from "../lib/openSky.js";
+import { canViewFlightsOf, friendVisibleFlightWhere } from "../lib/visibility.js";
 
 const router = Router();
 router.use(requireAuth);
@@ -34,23 +35,38 @@ router.get("/", async (req, res) => {
   res.json({ flights });
 });
 
-// One flight, scoped to the owner so users can't read each other's flights.
+// One flight. Visible to the owner always, and to accepted friends while the
+// flight is upcoming, en route, or landed within the visibility window.
 router.get("/:id", async (req, res) => {
   const userId = (req.user as { id: string }).id;
   const flight = await prisma.flight.findFirst({
-    where: { id: req.params.id, ownerId: userId },
+    where: { id: req.params.id },
+    include: { owner: { select: { id: true, name: true } } },
   });
   if (!flight) return res.status(404).json({ error: "Not found" });
+
+  if (flight.ownerId !== userId) {
+    const allowed = await canViewFlightsOf(userId, flight.ownerId);
+    if (!allowed) return res.status(404).json({ error: "Not found" });
+
+    const visible = await prisma.flight.findFirst({
+      where: { id: flight.id, ...friendVisibleFlightWhere() },
+    });
+    if (!visible) return res.status(404).json({ error: "Not found" });
+  }
+
   res.json({ flight });
 });
 
 // Live ADS-B position + flown track for one flight, via OpenSky.
 router.get("/:id/live", async (req, res) => {
   const userId = (req.user as { id: string }).id;
-  const f = await prisma.flight.findFirst({
-    where: { id: req.params.id, ownerId: userId },
-  });
+  const f = await prisma.flight.findFirst({ where: { id: req.params.id } });
   if (!f) return res.status(404).json({ error: "Not found" });
+  if (f.ownerId !== userId) {
+    const allowed = await canViewFlightsOf(userId, f.ownerId);
+    if (!allowed) return res.status(404).json({ error: "Not found" });
+  }
 
   if (f.originLat == null || f.originLon == null || f.destLat == null || f.destLon == null) {
     return res.json({ position: null, track: null, reason: "no coordinates yet" });

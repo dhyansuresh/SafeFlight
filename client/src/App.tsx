@@ -54,9 +54,9 @@ export default function App() {
   return (
     <AuthContext.Provider value={{ user, loading, refresh }}>
       <header className="nav">
-        <Link to="/" className="brand">✈ SafeFlight</Link>
+        <Link to="/" className="brand">✈ FlightTrack</Link>
         <nav>
-          <Link to="/map">Map</Link>
+          <Link to="/friends">Friends</Link>
           {user ? (
             <button onClick={logout}>Sign out ({user.name})</button>
           ) : (

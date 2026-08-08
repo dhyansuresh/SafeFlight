@@ -6,6 +6,7 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import FlightMap from "./pages/FlightMap";
 import FlightDetail from "./pages/FlightDetail";
+import Friends from "./pages/Friends";
 import "./styles.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
@@ -17,6 +18,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <Route path="/login" element={<Login />} />
           <Route path="/map" element={<FlightMap />} />
           <Route path="/flight/:id" element={<FlightDetail />} />
+          <Route path="/friends" element={<Friends />} />
           {/* Later: /card/:token (public shared card), /friends, /flight/:id */}
         </Route>
       </Routes>
