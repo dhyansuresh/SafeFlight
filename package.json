@@ -7,7 +7,9 @@
     "dev:server": "npm run dev -w server",
     "dev:client": "npm run dev -w client",
     "db:migrate": "npm run db:migrate -w server",
-    "db:studio": "npm run db:studio -w server"
+    "db:studio": "npm run db:studio -w server",
+    "build": "npm run build -w client && npm run build -w server",
+    "start": "node server/dist/index.js"
   },
   "devDependencies": {
     "concurrently": "^9.1.0"
